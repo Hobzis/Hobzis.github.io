@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="cs">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="style.css" rel="stylesheet" type="text/css">
+    <script>
+        //vzhledem k zoufalosti je zde řešen model bez výpočtu se zahrnutou zkušeností, je potřeba změnit u call funkce pro funkčnost se zkušeností: for(i<32), while(<5), actSum*actInExperience
+
+        //funkce NoisyOR volaná z výpočtů
+        function noisyOR(inRules, inInputs) { //The value of p_0 is so called leaky probability allowing Y=1 even if all parents are zero, typically its value is close to 1.
+            if (inRules.length != inInputs.length + 1) {
+                window.alert("The input is not compatible"); //u starsi verze, nyni bude potreba upravit do nějakého erroru
+            } else {
+                var rules = inRules;
+                var constantLeak = 1;
+                var inputs = [constantLeak].concat(inInputs); //insert value 1 for the leaky cause as the first value
+                let powRes = [];
+
+                for (let i = 0; i < inputs.length; i++) {
+                    powRes.push(Math.pow(rules[i], inputs[i]));
+
+                }
+
+                let res = 1;
+                for (let i = 0; i < powRes.length; i++) {
+                    res *= powRes[i];
+                }
+                return res;
+            }
+
+
+        }
+
+
+        //tabulky pravděpodobností 
+        let successfulPrint = [[0, 1], [1, 0]]; //tabulk pro uspesny tisk zalozeny na neuspesnem(false, true)
+        let badTemperature = [[[1, 0], [0.1, 0.9], [0.8, 0.2]], [[1, 0], [0.9, 0.1], [0.1, 0.9]], [[1, 0], [0.5, 0.5], [0.5, 0.5]]]; //tabulka pro bad temperature, prvni index odkazuje na material (PLA-0, ABS-1, FLEX-2), druhy na teplotu (0 - 50-101, 1 - 101-201, 2 - 201-300
+        let damageOfPrinter = [[[0.8, 0.2], [0.85, 0.15]], [[0.75, 0.25], [0.8, 0.2]], [[0.65, 0.35], [0.7, 0.3]]]; //poskozeni tiskarny, zalozene na 1.) delce tisku (0-4, 4-20, 20-999), 2.) cene tiskarny(0-8001,8001-30001)
+        let raiseOfCorners = [[[[0.2, 0.8], [0.8, 0.2]], [[0.05, 0.95], [0.95, 0.05]], [[0.05, 0.95], [0.95, 0.05]]], [[[0.2, 0.8], [0.8, 0.2]], [[0.3, 0.7], [0.7, 0.3]], [[0.3, 0.7], [0.7, 0.3]]]] //zvednute rohz, zalozene na 1.) chlazeni(false, true), 2.) materialu(PLA, ABS, FLEX), 3.)nahrati podlozky(false,true)
+        let unstickUnderlay = [[[[0.2, 0.8], [0.2, 0.8], [0.2, 0.8]], [[0.95, 0.05], [0.8, 0.2], [0.6, 0.4]]], [[[0.1, 0.9], [0.1, 0.9], [0.1, 0.9]], [[0.85, 0.15], [0.7, 0.3], [0.5, 0.5]]], [[[0.8, 0.2], [0.05, 0.95], [0.05, 0.95]], [[0.95, 0.05], [0.6, 0.4], [0.4, 0.6]]]] //odlepeni od podlozky, zalozene na 1.) delce_tisku(0-4, 4-20, 20-999), 2.) nahrati podlozky(false,true), 3.) materialu(PLA, ABS, FLEX)
+        let inExperience = [[0.5, 0.5], [0.5, 0.5]];
+        //pro unsuccessfulPrint uplatnujeme NoisyOR s pravdepodobnostmi
+        //let rulesNoisy = [0.96, 0.25, 0.1, 0.1, 0.25, 0.1]; //pravidla/parametry funkce NoisyOR
+        let rulesNoisy = [0.96, 0.25, 0.1, 0.1, 0.25, 0.1]; //pravidla/parametry funkce NoisyOR bez zkušenosti
+
+        //let actConf = [0, 0, 0, 0, 0]; //vstup pro NoisyOR, index 0-odlepeni od podlozky, 1-zvednute rohy, 2-poskozeni tiskarny, 3-spatne nastavena teplota, 4-zkusenost kratsi nez rok
+
+        function updateParameters() {
+            let tesre = Math.abs(1 - document.getElementById("unstickUnderlay|FLEX|true|20-999").value);
+            window.alert(tesre);
+        }
+
+        function call(form) {
+            updateParameters();
+            let actSum = 0; //aktualni soucet vsech moznych konfiguraci
+            for (let i = 0; i < 32; i++) {
+                let actConf = i.toString(2);
+                while (actConf.length < 5) {
+                    actConf = "0" + actConf;
+
+                }
+                let actUnstickUnderlay = unstickUnderlay[document.getElementById('6').value][document.getElementById('4').value][document.getElementById('2').value][actConf[0]];
+                let actRaiseOfCorners = raiseOfCorners[document.getElementById('3').value][document.getElementById('2').value][document.getElementById('4').value][actConf[1]];
+                let actDamageOfPrinter = damageOfPrinter[document.getElementById('6').value][document.getElementById('7').value][actConf[2]];
+                let actBadTemperature = badTemperature[document.getElementById('2').value][document.getElementById('1').value][actConf[3]];
+                let actInExperience = inExperience[document.getElementById('5').value][actConf[4]];
+                // window.alert("actUnstickUnderlay"+actUnstickUnderlay+"actRaiseOfCorners"+actRaiseOfCorners+"actDamageOfPrinter"+actDamageOfPrinter+"actBadTemperature"+actBadTemperature+"actInExperience"+actInExperience)
+                actSum += noisyOR(rulesNoisy, actConf) * actUnstickUnderlay * actRaiseOfCorners * actDamageOfPrinter * actBadTemperature * actInExperience; //vlastni vypocet pravděpodobnosti neúspěšného tisku, document... nám bere hodnotu, kterou jsme si vybrali ve webovém rozhraní, zde ve vypoctu chybi "zkusenost kratsi nez rok", ktera nepatri do 2. urovne
+
+            }
+            document.getElementById("resulticek").innerHTML = 100 - actSum;
+
+        }
+
+
+
+    </script>
+</head>
+
+<body onload="javascript:call(form)">
+    <!-- pridat ze zacatku prazdnou moznost, ktera bude znamenat, ze uzivatel nevyplnil vsechno-->
+    <header>
+        <nav>
+            <div class="button-container">
+                <div><button class="button-23"><a href="#to1">Změnit parametry</a></button></div>
+                <div><button class="button-23"><a href="#to2">O projektu</a></button></div>
+            </div>
+        </nav>
+    </header>
+    <div class="table">
+        <div class="lablicky">
+            <div class="div1"><label for q1>Teplota trysky: </label> </div>
+            <div class="div2"><label for q2>Material: </label></div>
+            <div class="div3"><label for q3>Chlazení: </label> </div>
+            <div class="div4"><label for q4>Nahřátí podložky: </label></div>
+            <div class="div5"><label for q5>Zkušenost s tiskem kratší než rok: </label> </div>
+            <div class="div6"><label for q6>Délka tisku: </label> </div>
+            <div class="div7"><label for q7>Cena tiskárny: </label> </div>
+            <div class="div8"><label>Pravděpodobnost úspěchu: </label></div>
+        </div>
+        <div class="selecticky">
+            <div class="div9">
+                <select class="set-width" name="q1" id="1" onchange="call(form)">
+                    <option id="1a" value="0">50 - 101</option>
+                    <option id="1b" value="1">101 - 201</option>
+                    <option id="1c" value="2">201 - 300</option>
+                </select>
+            </div>
+            <div class="div10">
+                <select class="set-width" name="q2" id="2" onchange="call(form)">
+                    <option id="2a" value="0">PLA</option>
+                    <option id="2b" value="1">ABS</option>
+                    <option id="2c" value="2">FLEX</option>
+                </select>
+            </div>
+            <div class="div11">
+                <select class="set-width" name="q3" id="3" onchange="call(form)">
+                    <option id="3a" value="0">vypnuto</option>
+                    <option id="3b" value="1">zapnuto</option>
+                </select>
+            </div>
+            <div class="div12">
+                <select class="set-width" name="q4" id="4" onchange="call(form)">
+                    <option id="4a" value="0">vypnuto</option>
+                    <option id="4b" value="1">zapnuto</option>
+                </select>
+            </div>
+            <div class="div13">
+                <select class="set-width" name="q5" id="5" onchange="call(form)">
+                    <option id="5a" value="0">ne</option>
+                    <option id="5b" value="1">ano</option>/option>
+                </select>
+            </div>
+            <div class="div14">
+                <select class="set-width" name="q6" id="6" onchange="call(form)">
+                    <option id="6a" value="0">0 - 4</option>
+                    <option id="6b" value="1">4 - 20</option>
+                    <option id="6c" value="2">20 a více</option>
+                </select>
+            </div>
+            <div class="div15">
+                <select class="set-width" name="q7" id="7" onchange="call(form)">
+                    <option id="7a" value="0">0 - 8001</option>
+                    <option id="7b" value="1">8001 - 30001</option>
+                </select>
+            </div>
+            <div class="div16">
+                <div class="result">
+                    <p id="resulticek">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <form>
+        <!--  <div class="table">
+            <table>
+                <div class="lablicky">
+                    <label for q1>Teplota trysky: </label>
+                    <label for q2>Material: </label>
+                    <label for q3>Chlazení: </label>
+                    <label for q4>Nahřátí podložky: </label>
+                    <label for q5>Zkušenost s tiskem kratší než rok: </label>
+                    <label for q6>Délka tisku: </label>
+                    <label for q7>Cena tiskárny: </label>
+                    <label>Pravděpodobnost úspěchu: </label>
+                </div>
+                <div class="selecticky">
+                    <select name="q1" id="1" onchange="call(form)">
+                        <option id="1a" value="0">50 - 101</option>
+                        <option id="1b" value="1">101 - 201</option>
+                        <option id="1c" value="2">201 - 300</option>
+                    </select>
+                    <select name="q2" id="2" onchange="call(form)">
+                        <option id="2a" value="0">PLA</option>
+                        <option id="2b" value="1">ABS</option>
+                        <option id="2c" value="2">FLEX</option>
+                    </select>
+                    <select name="q3" id="3" onchange="call(form)">
+                        <option id="3a" value="0">vypnuto</option>
+                        <option id="3b" value="1">zapnuto</option>
+                    </select>
+                    <select name="q4" id="4" onchange="call(form)">
+                        <option id="4a" value="0">vypnuto</option>
+                        <option id="4b" value="1">zapnuto</option>
+                    </select>
+                    <select name="q5" id="5" onchange="call(form)">
+                        <option id="5a" value="0">ne</option>
+                        <option id="5b" value="1">ano</option>/option>
+                    </select>
+                    <select name="q6" id="6" onchange="call(form)">
+                        <option id="6a" value="0">0 - 4</option>
+                        <option id="6b" value="1">4 - 20</option>
+                        <option id="6c" value="2">20 a více</option>
+                    </select>
+                    <select name="q7" id="7" onchange="call(form)">
+                        <option id="7a" value="0">0 - 8001</option>
+                        <option id="7b" value="1">8001 - 30001</option>
+                    </select>
+                    <div class="result">
+                        <p id="resulticek">0</p>
+                    </div>
+                </div>
+            </table> -->
+        <!-- </div> -->
+        <div id="to1" class="parameters">
+            <div class="unstickUnderlay">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Doba tisku (hodin)</td>
+                            <td colspan="6">do 4</td>
+                            <td colspan="6">4 - 20</td>
+                            <td colspan="6">20 - 999</td>
+                        </tr>
+                        <tr>
+                            <td>Nahřívání podložky</td>
+                            <td colspan="3">vypnuto</td>
+                            <td colspan="3">zapnuto</td>
+                            <td colspan="3">vypnuto</td>
+                            <td colspan="3">zapnuto</td>
+                            <td colspan="3">vypnuto</td>
+                            <td colspan="3">zapnuto</td>
+                        </tr>
+                        <tr>
+                            <td>Materiál</td>
+                            <td>PLA</td>
+                            <td>ABS</td>
+                            <td>FLEX</td>
+                            <td>PLA</td>
+                            <td>ABS</td>
+                            <td>FLEX</td>
+                            <td>PLA</td>
+                            <td>ABS</td>
+                            <td>FLEX</td>
+                            <td>PLA</td>
+                            <td>ABS</td>
+                            <td>FLEX</td>
+                            <td>PLA</td>
+                            <td>ABS</td>
+                            <td>FLEX</td>
+                            <td>PLA</td>
+                            <td>ABS</td>
+                            <td>FLEX</td>
+                        </tr>
+                        <tr>
+                            <td>Pravděpodobnost odlepení</td>
+                            <td><input type="number" id="unstickUnderlay|PLA|false|0-4" value="0.8" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|ABS|false|0-4" value="0.8" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|FLEX|false|0-4" value="0.8" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|PLA|true|0-4" value="0.05" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|ABS|true|0-4" value="0.2" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|FLEX|true|0-4" value="0.4" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|PLA|false|4-20" value="0.9" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|ABS|false|4-20" value="0.9" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|FLEX|false|4-20" value="0.9" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|PLA|true|4-20" value="0.15" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|ABS|true|4-20" value="0.3" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|FLEX|true|4-20" value="0.5" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|PLA|false|20-999" value="0.2" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|ABS|false|20-999" value="0.95" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|FLEX|false|20-999" value="0.95" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|PLA|true|20-999" value="0.05" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|ABS|true|20-999" value="0.4" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="unstickUnderlay|FLEX|true|20-999" value="0.6" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                        </tr>
+                        <!-- druhou hodnotu dopocitat!!! absolutni hodnota ze zbytku od jedne-->
+                    </tbody>
+                </table>
+            </div>
+            <div class="raiseOfCorners">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Chlazení</td>
+                            <td colspan="6">vypnuto</td>
+                            <td colspan="6">zapnuto</td>
+                        </tr>
+                        <tr>
+                            <td>Materiál</td>
+                            <td colspan="2">PLA</td>
+                            <td colspan="2">ABS</td>
+                            <td colspan="2">FLEX</td>
+                            <td colspan="2">PLA</td>
+                            <td colspan="2">ABS</td>
+                            <td colspan="2">FLEX</td>
+                        </tr>
+                        <tr>
+                            <td>Nahřívání podložky</td>
+                            <td>vypnuto</td>
+                            <td>zapnuto</td>
+                            <td>vypnuto</td>
+                            <td>zapnuto</td>
+                            <td>vypnuto</td>
+                            <td>zapnuto</td>
+                            <td>vypnuto</td>
+                            <td>zapnuto</td>
+                            <td>vypnuto</td>
+                            <td>zapnuto</td>
+                            <td>vypnuto</td>
+                            <td>zapnuto</td>
+                        </tr>
+                        <tr>
+                            <td>Pravděpodobnost zvednutí rohů</td>
+                            <td><input type="number" id="raiseOfCorners|false|PLA|false" value="0.8" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|true|PLA|false" value="0.2" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|false|ABS|false" value="0.95" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|true|ABS|false" value="0.05" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|false|FLEX|false" value="0.95" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|true|FLEX|false" value="0.05" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|false|PLA|true" value="0.8" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|true|PLA|true" value="0.2" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|false|ABS|true" value="0.7" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|true|ABS|true" value="0.3" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|false|FLEX|true" value="0.7" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="raiseOfCorners|true|FLEX|true" value="0.3" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                        </tr>
+                        <!-- druhou hodnotu dopocitat!!! absolutni hodnota ze zbytku od jedne-->
+                    </tbody>
+                </table>
+            </div>
+            <div class="badTemperature">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Materiál</td>
+                            <td colspan="3">PLA</td>
+                            <td colspan="3">ABS</td>
+                            <td colspan="3">FLEX</td>
+                        </tr>
+                        <tr>
+                            <td>Teplota trysky (°C)</td>
+                            <td>do 100</td>
+                            <td>101-200</td>
+                            <td>200 a více</td>
+                            <td>do 100</td>
+                            <td>101-200</td>
+                            <td>200 a více</td>
+                            <td>do 100</td>
+                            <td>101-200</td>
+                            <td>200 a více</td>
+                        </tr>
+                        <tr>
+                            <td>Pravděpodobnost špatně nastavené teploty</td>
+                            <td><input type="number" id="badTemperature|50-101|PLA" value="1" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="badTemperature|101-201|PLA" value="0.1" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="badTemperature|201-300|PLA" value="0.8" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="badTemperature|50-101|ABS" value="0.1" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="badTemperature|101-201|ABS" value="0.9" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="badTemperature|201-300|ABS" value="0.1" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="badTemperature|50-101|FLEX" value="0.1" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="badTemperature|101-201|FLEX" value="0.5" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="badTemperature|201-300|FLEX" value="0.5" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <!-- druhou hodnotu dopocitat!!! absolutni hodnota ze zbytku od jedne-->
+                    </tbody>
+                </table>
+            </div>
+            <div class="damageOfPrinter">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Doba tisku (hodiny)</td>
+                            <td colspan="2">do 4</td>
+                            <td colspan="2">4 - 20</td>
+                            <td colspan="2">20 a více</td>
+                        </tr>
+                        <tr>
+                            <td>Cena tiskárny (Kč)</td>
+                            <td>do 8000</td>
+                            <td>8000 a více</td>
+                            <td>do 8000</td>
+                            <td>8000 a více</td>
+                            <td>do 8000</td>
+                            <td>8000 a více</td>
+                        </tr>
+                        <tr>
+                            <td>Pravděpodobnost poškození tiskárny</td>
+                            <td><input type="number" id="damageOfPrinter|0-8001|0-4" value="0.2" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="damageOfPrinter|8001-30001|0-4" value="0.15" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="damageOfPrinter|0-8001|4-20" value="0.25" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="damageOfPrinter|8001-30001|4-20" value="0.2" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="damageOfPrinter|0-8001|20-999" value="0.35" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="damageOfPrinter|8001-30001|20-999" value="0.3" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <!-- druhou hodnotu dopocitat!!! absolutni hodnota ze zbytku od jedne-->
+                    </tbody>
+                </table>
+            </div>
+            <div class="rulesNoisy">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Pravidla Noisy</td>
+                            <td>odlepení od podložky</td>
+                            <td>zvednuté rohy</td>
+                            <td>poškození tiskárny</td>
+                            <td>špatně nastavená teplota</td>
+                            <td>zkušenost kratší než rok</td>
+                        </tr>
+                        <tr>
+                            <td>rulesNoisy</td>
+                            <td><input type="number" id="rulesNoisy|unstickUnderlay" value="0.25" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="rulesNoisy|raiseOfCorners" value="0.1" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="rulesNoisy|damageOfPrinter" value="0.1" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="rulesNoisy|badTemperature" value="0.25" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                            <td><input type="number" id="rulesNoisy|inExperience" value="0.2" min="0" max="1"
+                                    step="0.01">
+                            </td>
+                    </tbody>
+                </table>
+            </div>
+            <input type="button" value="Uložit parametry" onclick="updateParameters()">
+        </div>
+    </form>
+    <div class="about" id="to2">
+        <div>
+            <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Maiores, ipsum perspiciatis. Ea fuga amet
+                impedit sint quos sed quae dolorem eveniet ullam voluptatem incidunt aliquid nesciunt, dolores nemo ad
+                labore.
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>
